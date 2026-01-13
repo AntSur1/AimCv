@@ -20,13 +20,8 @@ dot_frame = np.ones((dot_frame_size[1], dot_frame_size[0], 3), dtype=np.uint8) *
 MARKER_SIZE = 0.06  # meters 0.055
 Z_plane = -0.025
 
-
-# --- Smoothing ---
-alpha_dir = 0.4
-filtered_dirs = {}
-last_forward_vecs = {}
-
-
+MARKER_A_ID = 0
+MARKER_B_ID = 1
 
 # --- Helper functions ---
 
@@ -51,60 +46,49 @@ while True:
         break
 
     corners, ids, _ = detector.detectMarkers(frame)
-    if ids is not None:
+    if ids is not None:  # at least one marker visible
         aruco.drawDetectedMarkers(frame, corners, ids)
-        
+
+        # --- Estimate poses ---
         rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
             corners, MARKER_SIZE, cameraMatrix, distCoeffs
         )
 
-        for rvec, tvec, marker_id in zip(rvecs, tvecs, ids.flatten()):
-            cv2.drawFrameAxes(frame, cameraMatrix, distCoeffs, rvec, tvec, 0.03)
+        # --- Get visible marker ---
+        marker_id = ids.flatten()[0]  # take first visible marker
+        idx = 0  # corresponding index in tvecs
+        p1 = tvecs[idx].ravel()      # visible marker position
 
-            # Compute forward vector
-            R, _ = cv2.Rodrigues(rvec)
-            forward_vec = R[:, 2]
-            forward_vec /= np.linalg.norm(forward_vec)
+        # --- Compute forward vector using L-layout ---
+        # Use a "virtual" second marker position from your rigid design
+        # Example: 5.5 cm along local X axis from marker A
+        L_offset = np.array([0.03, 0, 0])  # adjust to your L geometry
+        p2_virtual = p1 + L_offset
 
-            marker_id = int(marker_id)
+        # Define the L diagonal in object coordinates (normalized)
+        forward_vec = np.array([0.03, 0.03, 0])  # or [0.03, 0.03, 0] normalized
+        forward_vec = forward_vec / np.linalg.norm(forward_vec)
 
-            if marker_id not in filtered_dirs:
-                filtered_dirs[marker_id] = forward_vec.copy()
-                last_forward_vecs[marker_id] = forward_vec.copy()
-            else:
-                # dead-zone
-                if abs(forward_vec[0]) < 0.01 and abs(forward_vec[1]) < 0.01:
-                    forward_vec = last_forward_vecs[marker_id].copy()
 
-                last_forward_vecs[marker_id] = forward_vec.copy()
+        # --- Compute ray ---
+        ray_origin = p1
+        end_point_3d = ray_origin + forward_vec * 0.2
 
-                # filtering
-                filtered_dirs[marker_id] = (
-                    alpha_dir * forward_vec +
-                    (1 - alpha_dir) * filtered_dirs[marker_id]
-                )
-                filtered_dirs[marker_id] /= np.linalg.norm(filtered_dirs[marker_id])
+        intersection = calculatePlaneCoordinates(ray_origin, forward_vec, Z_plane)
+        pts_2d, _ = cv2.projectPoints(
+            np.array([ray_origin, end_point_3d]), np.zeros(3), np.zeros(3), cameraMatrix, distCoeffs
+        )
+        pt1, pt2 = pts_2d.reshape(2, 2).astype(int)
 
-            filtered_dir = filtered_dirs[marker_id]
-
-            ray_origin = tvec.ravel()
-            end_point_3d = ray_origin + filtered_dir * 0.2
-
-            intersection = calculatePlaneCoordinates(ray_origin, filtered_dir, Z_plane)
-            pts_2d, _ = cv2.projectPoints(
-                np.array([ray_origin, end_point_3d]), np.zeros(3), np.zeros(3), cameraMatrix, distCoeffs
-            )
-            pt1, pt2 = pts_2d.reshape(2, 2).astype(int)
-            
-            
-            if intersection is not None:
-                cv2.line(frame, tuple(pt1), tuple(pt2), (255, 0, 0), 2)  # blue line
-                show_dot(intersection, dot_frame)
-    
+        # --- Draw ---
+        cv2.line(frame, tuple(pt1), tuple(pt2), (255, 0, 0), 2)
+        if intersection is not None:
+            show_dot(intersection, dot_frame)
 
     cv2.imshow("Aruco Aim", frame)
     if cv2.waitKey(1) & 0xFF == 27:  # ESC
         break
+
         
 
 cap.release()
