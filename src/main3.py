@@ -1,9 +1,6 @@
 import cv2
 import numpy as np
-import matplotlib
-matplotlib.use('TkAgg')  # or 'Qt5Agg' if you have PyQt5 installed
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 # --- Load camera calibration ---
 data = np.load("camera_calib.npz")
@@ -19,7 +16,8 @@ detector = aruco.ArucoDetector(dictionary, parameters)
 fig = plt.figure(figsize=(10,5))
 ax = fig.add_subplot(1,2,1, projection='3d')
 ax2 = fig.add_subplot(1, 2, 2)
-plt.ion()
+plt.ioff()
+
 
 
 # --- Marker info ---
@@ -37,9 +35,9 @@ RIGHT_ID = 2
 
 def update_3d_view(marker_positions, aim_ray=None):
     ax.cla()
-    ax.set_xlabel("X (right)")
-    ax.set_ylabel("Y (up)")
-    ax.set_zlabel("Z (forward)")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
     ax.set_title("3d Projection")
 
     ax.set_xlim(-2, 2)
