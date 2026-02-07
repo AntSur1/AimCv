@@ -4,7 +4,7 @@ import glob
 
 # --- chessboard settings ---
 CHESSBOARD_SIZE = (9, 6)   # inner corners
-SQUARE_SIZE = 0.015        # meters
+SQUARE_SIZE = 0.02        # meters at 50%
 
 # --- prepare object points ---
 objp = np.zeros((CHESSBOARD_SIZE[0] * CHESSBOARD_SIZE[1], 3), np.float32)

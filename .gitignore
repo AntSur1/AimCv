@@ -1,0 +1,7 @@
+.vscode/
+calib_imgs/
+
+__pycache__/
+
+camera_calib.npz
+points.txt
