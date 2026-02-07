@@ -1,82 +1,115 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+
+# --- Constants ---
+MARKER_SIZE = 0.06  # meters
+FRONT_ID = 0
+LEFT_ID = 1
+RIGHT_ID = 2
+REQUIRED_IDS = {FRONT_ID, LEFT_ID, RIGHT_ID}
+
+# --- Camera plane for intersection ---
+Z_PLANE = -0.025
+Y_SHIFT = -0.12
+Y_ZERO_OFFSET = -0.6
 
 # --- Load camera calibration ---
 data = np.load("camera_calib.npz")
-cameraMatrix = data["cameraMatrix"]
-distCoeffs = data["distCoeffs"]
+CAMERA_MATRIX = data["cameraMatrix"]
+DIST_COEFFS = data["distCoeffs"]
+
+CAM_W = 640 #1280
+CAM_H = 480 #720
+
+
+running = True
+prev_dir = np.array([0, 0, 1])
 
 # --- ArUco setup ---
 aruco = cv2.aruco
-dictionary = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-parameters = aruco.DetectorParameters()
-detector = aruco.ArucoDetector(dictionary, parameters)
+DICT = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+PARAMS = aruco.DetectorParameters()
+DETECTOR = aruco.ArucoDetector(DICT, PARAMS)
 
-fig = plt.figure(figsize=(10,5))
-ax = fig.add_subplot(1,2,1, projection='3d')
-ax2 = fig.add_subplot(1, 2, 2)
-plt.ioff()
-
-
-
-# --- Marker info ---
-MARKER_SIZE = 0.06  # meters
-objp = np.array([
+# --- 3D marker model ---
+OBJ_POINTS = np.array([
     [-MARKER_SIZE/2,  MARKER_SIZE/2, 0],
     [ MARKER_SIZE/2,  MARKER_SIZE/2, 0],
     [ MARKER_SIZE/2, -MARKER_SIZE/2, 0],
     [-MARKER_SIZE/2, -MARKER_SIZE/2, 0],
 ], dtype=np.float32)
 
-FRONT_ID = 0
-LEFT_ID = 1
-RIGHT_ID = 2
 
-def update_3d_view(marker_positions, aim_ray=None):
-    ax.cla()
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-    ax.set_title("3d Projection")
+# --- Visualization setup ---
 
-    ax.set_xlim(-2, 2)
-    ax.set_ylim(-2, 2)
-    ax.set_zlim(0, 2.0)
+# --- Figure with GridSpec ---
+fig = plt.figure(figsize=(16, 9))
+gs = GridSpec(2, 2, height_ratios=[1, 2], width_ratios=[1, 1], hspace=0.3, wspace=0.3, figure=fig)
 
-    # Plot markers
-    for marker_id, p in marker_positions.items():
+# Top-left: 3D plot
+ax_3d = fig.add_subplot(gs[:, 0], projection='3d')
+ax_3d.set_title("3D Projection")
+
+# Top-right: Intersection plot
+ax_grid = fig.add_subplot(gs[0, 1])
+ax_grid.set_title("Intersection Point on Screen")
+
+# Bottom (spans both columns): Camera feed
+ax_img = fig.add_subplot(gs[1, 1])
+img_artist = ax_img.imshow(np.zeros((CAM_H, CAM_W, 3), dtype=np.uint8))
+ax_img.axis("off")
+ax_img.set_title("Camera")
+
+
+def on_close(event):
+    global running
+    running = False
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+fig.canvas.mpl_connect("close_event", on_close)
+fig.canvas.mpl_connect("key_release_event", on_close)
+
+
+def update_3d_plot(marker_positions, aim_ray=None):
+    ax_3d.cla()
+    ax_3d.set_xlabel("X")
+    ax_3d.set_ylabel("Y")
+    ax_3d.set_zlabel("Z")
+    ax_3d.set_title("3D Projection")
+    ax_3d.set_xlim(-2, 2)
+    ax_3d.set_ylim(-2, 2)
+    ax_3d.set_zlim(0, 2)
+
+    for mid, p in marker_positions.items():
         x, y, z = p
-        # flip Y for plotting
-        ax.scatter(x, -y, z, s=(10/(z*z)))
-        ax.text(x, -y, z, f"ID {marker_id}")
+        ax_3d.scatter(x, -y, z, s=10)
+        ax_3d.text(x, -y, z, f"ID {mid}")
 
-    # Plot aim line
     if aim_ray is not None:
         origin, direction = aim_ray
-        d_back = 0.25  # meters behind the front marker
-        length = 1.0   # meters in front of the front marker
-        start_point = origin - direction * d_back
-
+        d_back = 0.25
+        length = 1.0
         t = np.linspace(0, length + d_back, 50)
-        line = start_point.reshape(3,1) + direction.reshape(3,1) @ t.reshape(1,-1)
-        # flip Y for plotting
-        ax.plot(line[0], -line[1], line[2], color='r', linewidth=2, label='Aim')
+        line = origin.reshape(3,1) + direction.reshape(3,1) @ t.reshape(1,-1)
+        ax_3d.plot(line[0], -line[1], line[2], color='r', linewidth=2, label='Aim')
 
     plt.draw()
-    plt.pause(0.1)
+    plt.pause(0.01)
 
-def update_intersection_grid(intersection):
-    ax2.cla()
-    ax2.set_xlim(-2,2)
-    ax2.set_ylim(-2, 2)
-    ax2.set_xlabel("X (meters)")
-    ax2.set_ylabel("Y (meters, up)")
-    ax2.set_title("Intersection Point on Screen")
-    ax2.grid(True)
-
-    # flip Y for plotting
-    ax2.scatter(-intersection[0], -intersection[1], c='r', s=50)
+def update_intersection_plot(intersection):
+    ax_grid.cla()
+    ax_grid.set_xlim(-0.25, 0.25)
+    ax_grid.set_ylim(-0.25, 0.25)
+    ax_grid.set_xlabel("X (m)")
+    ax_grid.set_ylabel("Y (m)")
+    ax_grid.set_title("Intersection Point on Screen")
+    ax_grid.grid(True)
+    if intersection is not None:
+        ax_grid.scatter(-intersection[0], -intersection[1], c='r', s=50)
     fig.canvas.draw_idle()
 
 def estimate_aim_from_markers(Pz, Pl, Pr):
@@ -116,63 +149,66 @@ def estimate_aim_from_marker_dict(marker_positions, front_id, left_id, right_id)
 
     return estimate_aim_from_markers(Pz, Pl, Pr)
 
-def aim_intersection_shifted_plane(origin, direction):
-    z_plane = -0.03  # plane in front of camera
-    y_shift = -0.12  # adjust vertical for plotting
-    y_zeroing_offset = -0.6
-
-    if direction[2] == 0:
+def aim_intersection(origin, direction):
+    if direction[2] == 0: 
         return None
-    t = (z_plane - origin[2]) / direction[2]
+    t = (Z_PLANE - origin[2]) / direction[2]
     intersection = origin + t * direction
-    intersection[1] += y_shift + y_zeroing_offset
+    intersection[1] += Y_SHIFT + Y_ZERO_OFFSET
     return intersection
+
+def get_marker_positions(corners, ids):
+    """Compute 3D positions of detected ArUco markers."""
+    positions = {}
+    for c, marker_id in zip(corners, ids.flatten()):
+        ok, rvec, tvec = cv2.solvePnP(
+            OBJ_POINTS,
+            c[0].astype(np.float32),
+            CAMERA_MATRIX,
+            DIST_COEFFS,
+            flags=cv2.SOLVEPNP_IPPE_SQUARE
+        )
+        if ok:
+            positions[int(marker_id)] = tvec.reshape(3)
+    return positions
+
 
 # --- Start webcam ---
 cap = cv2.VideoCapture(0)
-if not cap.isOpened():
-    raise RuntimeError("Could not open webcam")
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)   # width
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)   # height
+if not cap.isOpened(): raise RuntimeError("Could not open webcam")
 
-prev_dir = np.array([0,0,1])
-REQUIRED_ID = {FRONT_ID, LEFT_ID, RIGHT_ID}
+last_markers = {}
+last_aim = None
+prev_dir = np.array([1.0, 1.0, 1.0])
 
-while True:
+print(" ============================ Running ============================ ")
+while running:
     ret, frame = cap.read()
     if not ret: break
     m_frame = cv2.flip(frame, 1)
 
-    corners, ids, _ = detector.detectMarkers(frame)
+    corners, ids, _ = DETECTOR.detectMarkers(frame)
     if ids is not None:
         aruco.drawDetectedMarkers(frame, corners, ids)
-        marker_positions = {}
+        markers = get_marker_positions(corners, ids)
+        last_markers = markers
 
-        for c, marker_id in zip(corners, ids.flatten()):
-            imgp = c[0].astype(np.float32)
-            ok, rvec, tvec = cv2.solvePnP(
-                objp,
-                imgp,
-                cameraMatrix,
-                distCoeffs,
-                flags=cv2.SOLVEPNP_IPPE_SQUARE
-            )
-            if ok:
-                marker_positions[int(marker_id)] = tvec.reshape(3)
-
-        if REQUIRED_ID.issubset(marker_positions.keys()):
-            origin, direction, R, t = estimate_aim_from_marker_dict(marker_positions, FRONT_ID, LEFT_ID, RIGHT_ID)
-            
+        if REQUIRED_IDS.issubset(markers.keys()):
+            origin, direction, R, t = estimate_aim_from_marker_dict(markers, FRONT_ID, LEFT_ID, RIGHT_ID)
+            # print(origin, direction)
             alpha = 0.2
             direction_smoothed = alpha * direction + (1-alpha) * prev_dir
             direction_smoothed /= np.linalg.norm(direction_smoothed)
             prev_dir = direction_smoothed
+            last_aim = (origin, direction_smoothed)
 
-            update_3d_view(marker_positions, aim_ray=(origin, direction))
-            intersection = aim_intersection_shifted_plane(origin, direction)
-            update_intersection_grid(intersection)
+    if not last_aim is None:
+        intersection = aim_intersection(*last_aim)
+        update_intersection_plot(intersection)
+        update_3d_plot(markers, aim_ray=(origin, direction_smoothed))
 
-    cv2.imshow("Aruco Aim", frame)
-    if cv2.waitKey(1) & 0xFF == 27:
-        break
+    img_artist.set_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
-cap.release()
-cv2.destroyAllWindows()
+print(" =============!============ CLOSED =============!============ ")
