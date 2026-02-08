@@ -9,33 +9,59 @@ const postFiles = [
 ];
 
 async function loadPost(filename) {
-  const res = await fetch(`./${POSTS_DIR}/${filename}`);
-  const text = await res.text();
+  try {
+    const res = await fetch(`./${POSTS_DIR}/${filename}`);
+    
+    if (!res.ok) {
+      console.warn(`Skipping ${filename}: ${res.status}`);
+      return null; // skip missing files
+    }
 
-  const [, frontmatter, content] =
-    text.match(/---([\s\S]*?)---([\s\S]*)/) || [];
+    const text = await res.text();
 
-  const meta = Object.fromEntries(
-    frontmatter
-      .trim()
-      .split("\n")
-      .map(line => line.split(":").map(s => s.trim()))
-  );
+    // safely parse frontmatter
+    const match = text.match(/---([\s\S]*?)---([\s\S]*)/);
+    if (!match) {
+      console.warn(`Skipping ${filename}: invalid frontmatter`);
+      return null;
+    }
 
-  return {
-    title: meta.title || filename,
-    date: meta.date || "",
-    html: marked.parse(content)
-  };
+    const [, frontmatter, content] = match;
+
+    const meta = Object.fromEntries(
+      frontmatter
+        .trim()
+        .split("\n")
+        .map(line => {
+          const parts = line.split(":");
+          if (parts.length < 2) return ["", ""];
+          return parts.map(s => s.trim());
+        })
+        .filter(([key]) => key) // remove empty lines
+    );
+
+    return {
+      title: meta.title || filename,
+      date: meta.date || "",
+      html: marked.parse(content)
+    };
+
+  } catch (err) {
+    console.error(`Error loading ${filename}:`, err);
+    return null; // skip on network or parsing error
+  }
 }
 
 async function loadAll() {
   const posts = await Promise.all(postFiles.reverse().map(loadPost));
 
-  // newest first
-  posts.sort((a, b) => new Date(b.date) - new Date(a.date));
+  // remove any nulls (failed files)
+  const validPosts = posts.filter(p => p);
 
-  for (const post of posts) {
+  // newest first
+  validPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  for (const post of validPosts) {
     const article = document.createElement("article");
     article.innerHTML = `
       <h2>${post.title}</h2>
