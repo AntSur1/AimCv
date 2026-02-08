@@ -9,7 +9,7 @@ const postFiles = [
 ];
 
 async function loadPost(filename) {
-  const res = await fetch(`${POSTS_DIR}/${filename}`);
+  const res = await fetch(`./${POSTS_DIR}/${filename}`);
   const text = await res.text();
 
   const [, frontmatter, content] =
