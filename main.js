@@ -20,13 +20,29 @@ async function loadPost(filename) {
     const text = await res.text();
 
     // safely parse frontmatter
-    const match = text.match(/---([\s\S]*?)---([\s\S]*)/);
-    if (!match) {
+    const cleanText = text.replace(/^\uFEFF/, ""); // strip possible BOM
+    const lines = cleanText.split(/\r?\n/);
+
+    if (lines[0].trim() !== "---") {
       console.warn(`Skipping ${filename}: invalid frontmatter`);
       return null;
     }
 
-    const [, frontmatter, content] = match;
+    let i = 1;
+    const frontmatterLines = [];
+
+    while (i < lines.length && lines[i].trim() !== "---") {
+      frontmatterLines.push(lines[i]);
+      i++;
+    }
+
+    if (i >= lines.length) {
+      console.warn(`Skipping ${filename}: invalid frontmatter`);
+      return null;
+    }
+
+    const frontmatter = frontmatterLines.join("\n");
+    const content = lines.slice(i + 1).join("\n");
 
     const meta = Object.fromEntries(
       frontmatter
