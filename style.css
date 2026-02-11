@@ -4,6 +4,7 @@ body {
   background: #fafafa;
   color: #222;
   margin: 0;
+  font-size:1rem;
 }
 
 main {
@@ -69,10 +70,20 @@ article a:hover {
 }
 
 article img {
-  display: block;        /* make them block so margin auto works */
-  max-width: 90%;        /* limit size to 90% of article width */
-  height: auto;          /* keep aspect ratio */
-  margin: 1rem auto;     /* center and add vertical spacing */
-  border-radius: 1px;    /* keeps your nice rounded corners */
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05); /* subtle shadow for depth */
+  display: block;
+  max-width: 90%;
+  height: auto;
+  margin: 1rem auto;
+  border-radius: 1px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* ---------- Responsive ---------- */
+@media screen and (max-width: 600px) {
+  body {
+    font-size: 1.1rem; /* slightly larger on phones */
+  }
+  h1 { font-size: 2rem; }
+  article h2 { font-size: 1.6rem; }
+  article p, article li, .time { font-size: 1rem; line-height: 1.5; }
 }
