@@ -12,7 +12,7 @@ A majority of this first step is completed. I have 3 views:
 - 2d-view -- shows the aim point on the screen.
 - cam-view -- debug view for the camera. 
 
-![Example view](../img/example.png)
+![Example view](posts/img/example.png)
 *Figure: Camera view with detected ArUco markers*
 
 **Todo**
