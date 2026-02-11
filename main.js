@@ -5,7 +5,7 @@ const entriesEl = document.getElementById("entries");
  * You must list files manually or auto-generate this list via a build step.
  */
 const postFiles = [
-  "2026-02-08-previously.txt",
+  "2026-02-08-previously.md",
 ];
 
 async function loadPost(filename) {

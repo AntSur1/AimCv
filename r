@@ -84,7 +84,7 @@ else if (mode === "sync" || mode === "s") {
     }
 
     const slug = slugify(title);
-    const newName = `${date}-${slug}.txt`;
+    const newName = `${date}-${slug}.md`;
     const newPath = path.join(POSTS_DIR, newName);
 
     if (file !== newName) {

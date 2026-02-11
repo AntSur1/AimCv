@@ -1,5 +1,5 @@
 ---
-title: Previously1
+title: Previously
 date: 2026-02-08
 ---
 
@@ -21,6 +21,3 @@ A majority of this first step is completed. I have 3 views:
 * Apparently i can increse the camera view resolution, this increses code detection accuracy.
 
 * I need to redo the codes, they're hand drawn and i marked the top left corner to know which one it is, but this has decresed acuracy because the CV gets confused by that mark.
-
-
-TEST12345
