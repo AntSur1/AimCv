@@ -71,7 +71,7 @@ def on_close(event):
 
 
 fig.canvas.mpl_connect("close_event", on_close)
-fig.canvas.mpl_connect("key_release_event", on_close)
+# fig.canvas.mpl_connect("key_release_event", on_close)
 
 
 def update_3d_plot(marker_positions, aim_ray=None):
@@ -80,9 +80,9 @@ def update_3d_plot(marker_positions, aim_ray=None):
     ax_3d.set_ylabel("Y")
     ax_3d.set_zlabel("Z")
     ax_3d.set_title("3D Projection")
-    ax_3d.set_xlim(-0.3, 0.3)
-    ax_3d.set_ylim(-0.3, 0.3)
-    ax_3d.set_zlim(0, 1)
+    ax_3d.set_xlim(-0.4, 0.4)
+    ax_3d.set_ylim(-1.2, 0.4)
+    ax_3d.set_zlim(-0.1, 1.2)
 
     for mid, p in marker_positions.items():
         x, y, z = p
@@ -91,11 +91,36 @@ def update_3d_plot(marker_positions, aim_ray=None):
 
     if aim_ray is not None:
         origin, direction = aim_ray
-        d_back = 0.25
-        length = 1.0
-        t = np.linspace(0, length + d_back, 50)
-        line = origin.reshape(3,1) + direction.reshape(3,1) @ t.reshape(1,-1)
-        ax_3d.plot(line[0], -line[1], line[2], color='r', linewidth=2, label='Aim')
+
+        # compute t for intersection with Z_PLANE
+        if direction[2] != 0:
+            t_end = (Z_PLANE - origin[2]) / direction[2]
+            t_end = max(0, t_end)  # optional: avoid negative t (behind camera)
+
+            t = np.linspace(0, t_end, 50)
+            line = origin.reshape(3,1) + direction.reshape(3,1) @ t.reshape(1,-1)
+            ax_3d.plot(line[0], -line[1], line[2], color='r', linewidth=2, label='Aim')
+
+
+    if True:
+        # --- Screen plane size in meters ---
+        screen_w = 0.525
+        screen_h = 0.235*2
+        x_half = screen_w / 2
+        y_half = screen_h / 2
+
+        # generate grid for plane
+        x = np.linspace(-x_half, x_half, 10)
+        y = np.linspace(-y_half, y_half, 10)
+        X, Y = np.meshgrid(x, y)
+        Z = np.full_like(X, Z_PLANE)
+
+        # apply vertical offset (center 15cm below camera)
+        Y -= Y_SHIFT + Y_ZERO_OFFSET  # or just +0.15 if you want
+
+        # plot the surface
+        ax_3d.plot_surface( X, -Y, Z, alpha=0.2, color='cyan')
+
 
     plt.draw()
     plt.pause(0.01)
@@ -112,32 +137,34 @@ def update_intersection_plot(intersection):
         ax_grid.scatter(-intersection[0], -intersection[1], c='r', s=50)
     fig.canvas.draw_idle()
 
-def estimate_aim_from_markers(Pz, Pl, Pr):
-    Zg = np.array([0, 0, 0])
-    Lg = np.array([-0.04958665,  0.00929887, -0.32420155])
-    Rg = np.array([ 0.04958665, -0.00929887, -0.29880825])
+# def estimate_aim_from_markers(Pz, Pl, Pr):
+#     Zg = np.array([0, 0, 0])
+#     Lg = np.array([-0.04958665,  0.00929887, -0.32420155])
+#     Rg = np.array([ 0.04958665, -0.00929887, -0.29880825])
 
-    G = np.stack([Zg, Lg, Rg])
-    C = np.stack([Pz, Pl, Pr])
+#     G = np.stack([Zg, Lg, Rg])
+#     C = np.stack([Pz, Pl, Pr])
 
-    Gc = G - G.mean(axis=0)
-    Cc = C - C.mean(axis=0)
+#     Gc = G - G.mean(axis=0)
+#     Cc = C - C.mean(axis=0)
 
-    H = Gc.T @ Cc
-    U, _, Vt = np.linalg.svd(H)
-    R = Vt.T @ U.T
+#     H = Gc.T @ Cc
+#     U, _, Vt = np.linalg.svd(H)
+#     R = Vt.T @ U.T
 
-    if np.linalg.det(R) < 0:
-        Vt[-1, :] *= -1
-        R = Vt.T @ U.T
+#     if np.linalg.det(R) < 0:
+#         Vt[-1, :] *= -1
+#         R = Vt.T @ U.T
 
-    t = C.mean(axis=0) - R @ G.mean(axis=0)
+#     t = C.mean(axis=0) - R @ G.mean(axis=0)
 
-    origin = Pz
-    direction = R @ np.array([0.0, 0.0, 1.0])
-    direction /= np.linalg.norm(direction)
+#     origin = Pz
+#     direction = R @ np.array([0.0, 0.0, 1.0])
+#     direction /= np.linalg.norm(direction)
 
-    return origin, direction, R, t
+#     return origin, direction, R, t
+
+
 
 def estimate_aim_from_marker_dict(marker_positions, front_id, left_id, right_id):
     try:
@@ -153,7 +180,7 @@ def aim_intersection(origin, direction):
     if direction[2] == 0: return None
     t = (Z_PLANE - origin[2]) / direction[2]
     intersection = origin + t * direction
-    intersection[1] += Y_SHIFT #+ Y_ZERO_OFFSET
+    intersection[1] += Y_SHIFT + Y_ZERO_OFFSET
     return intersection
 
 def get_marker_positions(corners, ids):
@@ -169,7 +196,7 @@ def get_marker_positions(corners, ids):
         )
         if ok:
             positions[int(marker_id)] = tvec.reshape(3)
-        print(tvec)
+        # print(tvec)
     return positions
 
 # chat
@@ -221,7 +248,7 @@ while running:
             origin, direction = estimate_aim_from_marker_dict(markers, FRONT_ID, LEFT_ID, RIGHT_ID)
             markers[4] = origin
             # print(origin, direction)
-            alpha = 0.1
+            alpha = 0.6
             direction_smoothed = alpha * direction + (1-alpha) * prev_dir
             direction_smoothed /= np.linalg.norm(direction_smoothed)
             prev_dir = direction_smoothed
