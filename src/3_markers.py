@@ -16,7 +16,7 @@ Y_SHIFT = -0.12
 Y_ZERO_OFFSET = -0.6
 
 # --- Load camera calibration ---
-data = np.load("camera_calib.npz")
+data = np.load("src/camera_calib.npz")
 CAMERA_MATRIX = data["cameraMatrix"]
 DIST_COEFFS = data["distCoeffs"]
 
