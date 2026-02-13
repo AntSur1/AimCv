@@ -6,6 +6,7 @@ const entriesEl = document.getElementById("entries");
  */
 const postFiles = [
   "2026-02-08-previously.md",
+  "2026-02-13-gui-and-math-update.md",
 ];
 
 async function loadPost(filename) {

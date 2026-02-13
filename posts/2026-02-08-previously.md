@@ -16,8 +16,8 @@ A majority of this first step is completed. I have 3 views:
 *Figure: Camera view with detected ArUco markers*
 
 **Todo**
-* I need to verify the math, as it's wrong. When you aim at one point and then rotate the gun, the aim point moves, and the further to the side you aim the lower the aim point gets interpreted. I need to recalculate the math. I will present it here in the future.
+* ~~I need to verify the math, as it's wrong.~~ When you aim at one point and then rotate the gun, the aim point moves, and the further to the side you aim the lower the aim point gets interpreted. ~~I need to recalculate the math.~~ I will present it here in the future.
 
-* Apparently i can increse the camera view resolution, this increses code detection accuracy.
+* Apparently i can increse the camera view resolution, this might increse code detection accuracy.
 
 * I need to redo the codes, they're hand drawn and i marked the top left corner to know which one it is, but this has decresed acuracy because the CV gets confused by that mark.
