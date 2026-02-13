@@ -80,9 +80,9 @@ def update_3d_plot(marker_positions, aim_ray=None):
     ax_3d.set_ylabel("Y")
     ax_3d.set_zlabel("Z")
     ax_3d.set_title("3D Projection")
-    ax_3d.set_xlim(-2, 2)
-    ax_3d.set_ylim(-2, 2)
-    ax_3d.set_zlim(0, 2)
+    ax_3d.set_xlim(-0.3, 0.3)
+    ax_3d.set_ylim(-0.3, 0.3)
+    ax_3d.set_zlim(0, 1)
 
     for mid, p in marker_positions.items():
         x, y, z = p
@@ -147,14 +147,13 @@ def estimate_aim_from_marker_dict(marker_positions, front_id, left_id, right_id)
     except KeyError as e:
         raise KeyError(f"Missing marker ID: {e}")
 
-    return estimate_aim_from_markers(Pz, Pl, Pr)
+    return compute_barrel_line(Pz, Pl, Pr) #estimate_aim_from_markers(Pz, Pl, Pr)
 
 def aim_intersection(origin, direction):
-    if direction[2] == 0: 
-        return None
+    if direction[2] == 0: return None
     t = (Z_PLANE - origin[2]) / direction[2]
     intersection = origin + t * direction
-    intersection[1] += Y_SHIFT + Y_ZERO_OFFSET
+    intersection[1] += Y_SHIFT #+ Y_ZERO_OFFSET
     return intersection
 
 def get_marker_positions(corners, ids):
@@ -170,7 +169,30 @@ def get_marker_positions(corners, ids):
         )
         if ok:
             positions[int(marker_id)] = tvec.reshape(3)
+        print(tvec)
     return positions
+
+# chat
+
+def compute_barrel_line(F, B1, B2, h=0.125):
+    rear_mid = 0.5 * (B1 + B2)
+
+    s = B2 - B1
+    s /= np.linalg.norm(s)
+
+    f = F - rear_mid
+    f /= np.linalg.norm(f)
+
+    v = np.cross(f, s)
+    v /= np.linalg.norm(v)
+
+    B_virtual = rear_mid - h * v
+
+    barrel_dir = F - B_virtual
+    barrel_dir /= np.linalg.norm(barrel_dir)
+
+    return B_virtual, barrel_dir
+
 
 
 # --- Start webcam ---
@@ -196,9 +218,10 @@ while running:
         last_markers = markers
 
         if REQUIRED_IDS.issubset(markers.keys()):
-            origin, direction, R, t = estimate_aim_from_marker_dict(markers, FRONT_ID, LEFT_ID, RIGHT_ID)
+            origin, direction = estimate_aim_from_marker_dict(markers, FRONT_ID, LEFT_ID, RIGHT_ID)
+            markers[4] = origin
             # print(origin, direction)
-            alpha = 0.2
+            alpha = 0.1
             direction_smoothed = alpha * direction + (1-alpha) * prev_dir
             direction_smoothed /= np.linalg.norm(direction_smoothed)
             prev_dir = direction_smoothed
