@@ -56,7 +56,14 @@ title: Title
 date: ${today}
 ---
 
-Write your devlog here.
+Done
+
+![Name](posts/img/example.png)
+*Figure: Figure desc*
+
+**Todo**
+* 1
+* 2
 `;
 
   fs.writeFileSync(path.join(POSTS_DIR, tempName), template, "utf8");

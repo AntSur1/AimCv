@@ -6,6 +6,9 @@ import glob
 CHESSBOARD_SIZE = (9, 6)   # inner corners
 SQUARE_SIZE = 0.02        # meters at 50%
 
+CAM_W =  1280   #640#
+CAM_H =  720    #480#
+
 # --- prepare object points ---
 objp = np.zeros((CHESSBOARD_SIZE[0] * CHESSBOARD_SIZE[1], 3), np.float32)
 objp[:, :2] = np.mgrid[0:CHESSBOARD_SIZE[0], 0:CHESSBOARD_SIZE[1]].T.reshape(-1, 2)
@@ -13,6 +16,7 @@ objp *= SQUARE_SIZE
 
 objpoints = []
 imgpoints = []
+
 
 images = glob.glob("calib_imgs/*.png")
 

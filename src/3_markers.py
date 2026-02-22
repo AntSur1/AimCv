@@ -13,16 +13,22 @@ REQUIRED_IDS = {FRONT_ID, LEFT_ID, RIGHT_ID}
 # --- Camera plane for intersection ---
 Z_PLANE = -0.025
 Y_SHIFT = -0.12
-Y_ZERO_OFFSET = -0.6
+Y_ZERO_OFFSET = -0.1
+
+REAL_SCREEN_WIDTH = 0.52
+REAL_SCREEN_HEIGHT = 0.29
 
 # --- Load camera calibration ---
-data = np.load("src/camera_calib.npz")
+
+CAM_W =  640
+CAM_H =  480
+data = np.load("src/camera_calib_64_48.npz")
 CAMERA_MATRIX = data["cameraMatrix"]
 DIST_COEFFS = data["distCoeffs"]
 
-CAM_W = 640 #1280
-CAM_H = 480 #720
-
+# possible higher resolution requires recalibration
+# CAM_W = 1280
+# CAM_H = 720
 
 running = True
 prev_dir = np.array([0, 0, 1])
@@ -104,10 +110,8 @@ def update_3d_plot(marker_positions, aim_ray=None):
 
     if True:
         # --- Screen plane size in meters ---
-        screen_w = 0.525
-        screen_h = 0.235*2
-        x_half = screen_w / 2
-        y_half = screen_h / 2
+        x_half = REAL_SCREEN_WIDTH / 2
+        y_half = REAL_SCREEN_HEIGHT / 2
 
         # generate grid for plane
         x = np.linspace(-x_half, x_half, 10)
@@ -126,9 +130,13 @@ def update_3d_plot(marker_positions, aim_ray=None):
     plt.pause(0.01)
 
 def update_intersection_plot(intersection):
+    x_half = REAL_SCREEN_WIDTH / 2
+    y_half = REAL_SCREEN_HEIGHT / 2
+
     ax_grid.cla()
-    ax_grid.set_xlim(-0.25, 0.25)
-    ax_grid.set_ylim(-0.25, 0.25)
+    ax_grid.set_xlim(-x_half, x_half) # actual screen size
+    ax_grid.set_ylim(-y_half, y_half)
+    ax_grid.set_aspect('equal', adjustable='box')
     ax_grid.set_xlabel("X (m)")
     ax_grid.set_ylabel("Y (m)")
     ax_grid.set_title("Intersection Point on Screen")
@@ -170,8 +178,6 @@ def get_marker_positions(corners, ids):
         # print(tvec)
     return positions
 
-# chat
-
 def compute_barrel_line(F, B1, B2, h=0.125):
     rear_mid = 0.5 * (B1 + B2)
 
@@ -190,7 +196,6 @@ def compute_barrel_line(F, B1, B2, h=0.125):
     barrel_dir /= np.linalg.norm(barrel_dir)
 
     return B_virtual, barrel_dir
-
 
 
 # --- Start webcam ---
@@ -213,22 +218,22 @@ while running:
         aruco.drawDetectedMarkers(frame, corners, ids)
         markers = get_marker_positions(corners, ids)
         last_markers = markers
-        print(last_markers)
+        # print(last_markers)
 
         if REQUIRED_IDS.issubset(markers.keys()):
             origin, direction = estimate_aim_from_marker_dict(markers, FRONT_ID, LEFT_ID, RIGHT_ID)
             markers[4] = origin
             # print(origin, direction)
-            alpha = 0.6
-            direction_smoothed = alpha * direction + (1-alpha) * prev_dir
-            direction_smoothed /= np.linalg.norm(direction_smoothed)
-            prev_dir = direction_smoothed
-            last_aim = (origin, direction_smoothed)
+            # alpha = 0.6
+            # direction_smoothed = alpha * direction + (1-alpha) * prev_dir
+            # direction_smoothed /= np.linalg.norm(direction_smoothed)
+            # prev_dir = direction_smoothed
+            last_aim = (origin, direction)#direction_smoothed)
 
     if not last_aim is None:
         intersection = aim_intersection(*last_aim)
         update_intersection_plot(intersection)
-        update_3d_plot(markers, aim_ray=(origin, direction)) # direction_smoothed
+        update_3d_plot(markers, last_aim)
 
     img_artist.set_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
