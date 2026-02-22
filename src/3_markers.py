@@ -137,35 +137,6 @@ def update_intersection_plot(intersection):
         ax_grid.scatter(-intersection[0], -intersection[1], c='r', s=50)
     fig.canvas.draw_idle()
 
-# def estimate_aim_from_markers(Pz, Pl, Pr):
-#     Zg = np.array([0, 0, 0])
-#     Lg = np.array([-0.04958665,  0.00929887, -0.32420155])
-#     Rg = np.array([ 0.04958665, -0.00929887, -0.29880825])
-
-#     G = np.stack([Zg, Lg, Rg])
-#     C = np.stack([Pz, Pl, Pr])
-
-#     Gc = G - G.mean(axis=0)
-#     Cc = C - C.mean(axis=0)
-
-#     H = Gc.T @ Cc
-#     U, _, Vt = np.linalg.svd(H)
-#     R = Vt.T @ U.T
-
-#     if np.linalg.det(R) < 0:
-#         Vt[-1, :] *= -1
-#         R = Vt.T @ U.T
-
-#     t = C.mean(axis=0) - R @ G.mean(axis=0)
-
-#     origin = Pz
-#     direction = R @ np.array([0.0, 0.0, 1.0])
-#     direction /= np.linalg.norm(direction)
-
-#     return origin, direction, R, t
-
-
-
 def estimate_aim_from_marker_dict(marker_positions, front_id, left_id, right_id):
     try:
         Pz = marker_positions[front_id]
@@ -174,7 +145,7 @@ def estimate_aim_from_marker_dict(marker_positions, front_id, left_id, right_id)
     except KeyError as e:
         raise KeyError(f"Missing marker ID: {e}")
 
-    return compute_barrel_line(Pz, Pl, Pr) #estimate_aim_from_markers(Pz, Pl, Pr)
+    return compute_barrel_line(Pz, Pl, Pr)
 
 def aim_intersection(origin, direction):
     if direction[2] == 0: return None
@@ -210,7 +181,7 @@ def compute_barrel_line(F, B1, B2, h=0.125):
     f = F - rear_mid
     f /= np.linalg.norm(f)
 
-    v = np.cross(f, s)
+    v = np.cross(s, f)
     v /= np.linalg.norm(v)
 
     B_virtual = rear_mid - h * v
@@ -236,13 +207,13 @@ print(" ============================ Running ============================ ")
 while running:
     ret, frame = cap.read()
     if not ret: break
-    m_frame = cv2.flip(frame, 1)
 
     corners, ids, _ = DETECTOR.detectMarkers(frame)
     if ids is not None:
         aruco.drawDetectedMarkers(frame, corners, ids)
         markers = get_marker_positions(corners, ids)
         last_markers = markers
+        print(last_markers)
 
         if REQUIRED_IDS.issubset(markers.keys()):
             origin, direction = estimate_aim_from_marker_dict(markers, FRONT_ID, LEFT_ID, RIGHT_ID)
@@ -257,7 +228,7 @@ while running:
     if not last_aim is None:
         intersection = aim_intersection(*last_aim)
         update_intersection_plot(intersection)
-        update_3d_plot(markers, aim_ray=(origin, direction_smoothed))
+        update_3d_plot(markers, aim_ray=(origin, direction)) # direction_smoothed
 
     img_artist.set_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
