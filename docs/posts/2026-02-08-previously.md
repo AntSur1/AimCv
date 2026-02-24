@@ -5,7 +5,7 @@ date: 2026-02-08
 
 My vision is to create an application where you can practice hunting. To do this I need to finish the first part of the plan, which is to create a way to detect where a user is pointing their gun on their screen.
 
-To do this I decided to use OpenCV to detect so called aruco codes placed strategically on the gun.
+To do this I decided to use OpenCV to detect so called ArUco codes placed strategically on the gun.
 
 A majority of this first step is completed. I have 3 views:
 - 3d-view -- should be a projection of the markers in 3d space with a red "aim line". All of this is calculated.
@@ -16,8 +16,8 @@ A majority of this first step is completed. I have 3 views:
 *Figure: Camera view with detected ArUco markers.*
 
 **Todo**
-* ~~I need to verify the math, as it's wrong.~~ ~~When you aim at one point and then rotate the gun, the aim point moves,~~ and the further to the side you aim the lower the aim point gets interpreted. ~~I need to recalculate the math.~~ I will present it here in the future.
+* ~~I need to verify the math, as it's wrong.~~ ~~When you aim at one point and then rotate the gun, the aim point moves,~~ ~~and the further to the side you aim the lower the aim point gets interpreted.~~ ~~I need to recalculate the math.~~ ~~I will present it here in the future.~~
 
-* Apparently I can increase the camera view resolution, this might increase code detection accuracy.
+* ~~Apparently I can increase the camera view resolution, this might increase code detection accuracy.~~
 
-* I need to redo the codes, they're hand drawn and I marked the top left corner to know which one it is, but this has decreased accuracy because the CV gets confused by that mark.
+* ~~I need to redo the codes, they're hand drawn and I marked the top left corner to know which one it is, but this has decreased accuracy because the CV gets confused by that mark.~~

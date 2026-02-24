@@ -15,6 +15,6 @@ Other than these observations, I updated the GUI to reflect the screen size bett
 *Figure: New size accurate intersection plot.*
 
 **Todo**
-* Increase camera resolution and redo calibration.
+* ~~Increase camera resolution and redo calibration.~~
 
 * (Move camera)
