@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-data = np.load("camera_calib.npz")
+data = np.load("camera_calib_128_72.npz")
 cameraMatrix = data["cameraMatrix"]
 distCoeffs = data["distCoeffs"]
 
