@@ -26,43 +26,42 @@ $$
 Compute the normalized side vector between the left and right rear markers:
 
 $$
-\mathbf{V}_{side} = \frac{P_{right} - P_{left}}{\|P_{right} - P_{left}\|}
+V_{side} = \frac{P_{right} - P_{left}}{\||P_{right} - P_{left}\||}
 $$
 
 Compute the normalized forward vector from the rear midpoint toward the forward marker:
 
 $$
-\mathbf{V}_{forward} = \frac{P_{front} - P_{mid}}{\|P_{front} - P_{mid}\|}
+V_{forward} = \frac{P_{front} - P_{mid}}{\||P_{front} - P_{mid}\||}
 $$
 
 Compute the normalized up vector via the cross product of the side and forward vectors:
 
 $$
-\mathbf{V}_{up} = \frac{\mathbf{V}_{side} \times \mathbf{V}_{forward}}{\|\mathbf{V}_{side} \times \mathbf{V}_{forward}\|}
-$$
+V_{up} = \frac{V\_{side} \times V\_{forward}}{\||V\_{side} \times V\_{forward}\||}$$
 
 Compute the virtual barrel base position by offsetting the rear midpoint along the up vector:
 
 $$
-P_{barrel} = P_{mid} - h \cdot \mathbf{V}_{up}
+P_{barrel} = P_{mid} - h \cdot V_{up}
 $$
 
 Compute the normalized barrel direction vector pointing from the virtual barrel base to the forward marker:
 
 $$
-\mathbf{V}_{barrel\_aim} = \frac{P_{front} - P_{barrel}}{\|P_{front} - P_{barrel}\|}
+V\_{barrel\\_aim} = \frac{P\_{front} - P\_{barrel}}{\||P\_{front} - P\_{barrel}\||}
 $$
 
-The intersection occurs at a scalar $t$ along the aim line defined by its origin $P_{barrel}$ and direction vector $\mathbf{V}_{barrel\_aim}$:
+The intersection occurs at a scalar $t$ along the aim line defined by its origin $P_{barrel}$ and direction vector $V_{barrel\\_aim}$:
 
 $$
-t = \frac{Z_{plane} - P_{barrel, z}}{\mathbf{V}_{barrel\_aim, z}}
+t = \frac{Z_{plane} - P_{barrel, z}}{V_{barrel\\_aim, z}}
 $$
 
 Using the parameter $t$, the intersection point with the plane is:
 
 $$
-P_{intersection} = P_{barrel} + t \cdot \mathbf{V}_{barrel\_aim}
+P_{intersection} = P_{barrel} + t \cdot V_{barrel\\_aim}
 $$
 
 Finlay an intersection offset by a measured value $Y_{shift}$ that's based on the cameras origin distance from the screen center:

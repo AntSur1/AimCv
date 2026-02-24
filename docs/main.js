@@ -74,11 +74,7 @@ async function loadPost(filename) {
 
 async function loadAll() {
   const posts = await Promise.all(postFiles.reverse().map(loadPost));
-
-  // remove any nulls (failed files)
   const validPosts = posts.filter(p => p);
-
-  // newest first
   validPosts.sort((a, b) => new Date(b.date) - new Date(a.date));
 
   for (const post of validPosts) {
@@ -90,6 +86,15 @@ async function loadAll() {
     `;
     entriesEl.appendChild(article);
   }
+
+  // IMPORTANT: render math after DOM injection
+  renderMathInElement(entriesEl, {
+    delimiters: [
+      { left: "$$", right: "$$", display: true },
+      { left: "$", right: "$", display: false }
+    ],
+    throwOnError: false
+  });
 }
 
 loadAll();
