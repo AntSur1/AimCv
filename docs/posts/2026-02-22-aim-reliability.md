@@ -1,5 +1,5 @@
 ---
-title: Aim reliability
+title: Aim Reliability
 date: 2026-02-22
 ---
 
@@ -12,7 +12,7 @@ Another solution would be to move the camera from a position right in front of t
 Other than these observations, I updated the GUI to reflect the screen size better.
 
 ![New GUI view](posts/img/gui3.png)
-*Figure: New size accurate intersection plot*
+*Figure: New size accurate intersection plot.*
 
 **Todo**
 * Increase camera resolution and redo calibration.

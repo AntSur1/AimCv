@@ -1,5 +1,5 @@
 ---
-title: Gui and Math update
+title: Gui and Math Update
 date: 2026-02-13
 ---
 

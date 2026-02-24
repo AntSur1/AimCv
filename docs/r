@@ -59,11 +59,11 @@ date: ${today}
 Done
 
 ![Name](posts/img/example.png)
-*Figure: Figure desc*
+*Figure: Description.*
 
 **Todo**
-* 1
-* 2
+*
+*
 `;
 
   fs.writeFileSync(path.join(POSTS_DIR, tempName), template, "utf8");

@@ -91,6 +91,7 @@ fig.canvas.mpl_connect("close_event", on_close)
 # fig.canvas.mpl_connect("key_release_event", on_close)
 
 def update_3d_plot(marker_positions, origin=None, direction=None):
+    '''Updates the 3D plot.'''
     # Update marker positions
     if marker_positions:
         xs, ys, zs = zip(*marker_positions.values())
@@ -126,6 +127,7 @@ def update_3d_plot(marker_positions, origin=None, direction=None):
     plt.pause(0.001)
 
 def update_intersection_plot(intersection):
+    '''Updates the intersection plot.'''
     if intersection is not None:
         intersection_scat.set_offsets([[-intersection[0], -intersection[1]]])
     else:
@@ -176,7 +178,7 @@ def get_marker_positions(corners, ids):
 
 def compute_barrel_line(F, L, R, h=0.125):
     """Computes the barrel aim line based on the three Aruco codes."""
-    rear_mid = 0.5 * (L + R)
+    rear_mid = 0.5 * (R + L)
 
     s = R - L
     s /= np.linalg.norm(s)

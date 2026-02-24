@@ -13,7 +13,7 @@ A majority of this first step is completed. I have 3 views:
 - cam-view -- debug view for the camera. 
 
 ![Example view](posts/img/example.png)
-*Figure: Camera view with detected ArUco markers*
+*Figure: Camera view with detected ArUco markers.*
 
 **Todo**
 * ~~I need to verify the math, as it's wrong.~~ ~~When you aim at one point and then rotate the gun, the aim point moves,~~ and the further to the side you aim the lower the aim point gets interpreted. ~~I need to recalculate the math.~~ I will present it here in the future.

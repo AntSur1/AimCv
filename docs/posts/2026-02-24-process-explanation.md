@@ -1,5 +1,5 @@
 ---
-title: Process explanation
+title: Process Explanation
 date: 2026-02-24
 ---
 
@@ -20,13 +20,13 @@ After computing the intersection, it can be translated into screen coordinates.
 Compute the midpoint of the left and right markers:
 
 $$
-P_{mid} = \frac{P_{left} + P_{right}}{2}
+P_{mid} = \frac{P_{right} + P_{left}}{2}
 $$
 
 Compute the normalized side vector between the left and right rear markers:
 
 $$
-\mathbf{V}_{side} = \frac{P_{right\_rear} - P_{left\_rear}}{\|P_{right\_rear} - P_{left\_rear}\|}
+\mathbf{V}_{side} = \frac{P_{right} - P_{left}}{\|P_{right} - P_{left}\|}
 $$
 
 Compute the normalized forward vector from the rear midpoint toward the forward marker:
@@ -65,3 +65,8 @@ $$
 P_{intersection} = P_{barrel} + t \cdot \mathbf{V}_{barrel\_aim}
 $$
 
+Finlay an intersection offset by a measured value $Y_{shift}$ that's based on the cameras origin distance from the screen center:
+
+$$
+P_{intersection, y} = P_{intersection, y} + Y_{shift}
+$$
