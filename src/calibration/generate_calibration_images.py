@@ -4,6 +4,15 @@ import os
 cap = cv2.VideoCapture(0)
 os.makedirs("calib_imgs", exist_ok=True)
 
+cap = cv2.VideoCapture(0)
+
+# Desired resolution
+CAM_W = 1280
+CAM_H = 720
+
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
+
 count = 0
 
 while True:

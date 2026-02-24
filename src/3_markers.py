@@ -20,9 +20,9 @@ REAL_SCREEN_HEIGHT = 0.29
 
 # --- Load camera calibration ---
 
-CAM_W =  640
-CAM_H =  480
-data = np.load("src/camera_calib_64_48.npz")
+CAM_W =  1280 #640
+CAM_H =  720 #480
+data = np.load("src/camera_calib_128_72.npz")
 CAMERA_MATRIX = data["cameraMatrix"]
 DIST_COEFFS = data["distCoeffs"]
 

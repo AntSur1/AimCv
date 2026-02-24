@@ -3,5 +3,5 @@ calib_imgs/
 
 /__pycache__/
 
-camera_calib.npz
+*.npz
 points.txt
