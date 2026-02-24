@@ -22,33 +22,14 @@ REAL_SCREEN_HEIGHT = 0.29
 
 CAM_W =  640
 CAM_H =  480
-data = np.load("src/camera_calib_64_48.npz")
-CAMERA_MATRIX = data["cameraMatrix"]
-DIST_COEFFS = data["distCoeffs"]
+
+CAMERA_CALIB = np.load("src/camera_calib_64_48.npz")
 
 # possible higher resolution requires recalibration
 # CAM_W = 1280
 # CAM_H = 720
 
 running = True
-prev_dir = np.array([0, 0, 1])
-
-# --- ArUco setup ---
-aruco = cv2.aruco
-DICT = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
-PARAMS = aruco.DetectorParameters()
-DETECTOR = aruco.ArucoDetector(DICT, PARAMS)
-
-# --- 3D marker model ---
-OBJ_POINTS = np.array([
-    [-MARKER_SIZE/2,  MARKER_SIZE/2, 0],
-    [ MARKER_SIZE/2,  MARKER_SIZE/2, 0],
-    [ MARKER_SIZE/2, -MARKER_SIZE/2, 0],
-    [-MARKER_SIZE/2, -MARKER_SIZE/2, 0],
-], dtype=np.float32)
-
-
-# --- Visualization setup ---
 
 # --- Figure with GridSpec ---
 fig = plt.figure(figsize=(16, 9))
@@ -80,7 +61,23 @@ fig.canvas.mpl_connect("close_event", on_close)
 # fig.canvas.mpl_connect("key_release_event", on_close)
 
 
-def update_3d_plot(marker_positions, aim_ray=None):
+aruco = cv2.aruco
+DICT = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+PARAMS = aruco.DetectorParameters()
+DETECTOR = aruco.ArucoDetector(DICT, PARAMS)
+OBJ_POINTS = np.array([
+    [-MARKER_SIZE/2,  MARKER_SIZE/2, 0],
+    [ MARKER_SIZE/2,  MARKER_SIZE/2, 0],
+    [ MARKER_SIZE/2, -MARKER_SIZE/2, 0],
+    [-MARKER_SIZE/2, -MARKER_SIZE/2, 0],
+], dtype=np.float32)
+
+CAMERA_MATRIX = CAMERA_CALIB["cameraMatrix"]
+DIST_COEFFS = CAMERA_CALIB["distCoeffs"]
+
+def update_3d_plot(marker_positions, origin=None, direction = None):
+    """Updates and draws the intersection plot."""
+
     ax_3d.cla()
     ax_3d.set_xlabel("X")
     ax_3d.set_ylabel("Y")
@@ -90,14 +87,12 @@ def update_3d_plot(marker_positions, aim_ray=None):
     ax_3d.set_ylim(-1.2, 0.4)
     ax_3d.set_zlim(-0.1, 1.2)
 
-    for mid, p in marker_positions.items():
+    for id, p in marker_positions.items():
         x, y, z = p
         ax_3d.scatter(x, -y, z, s=10)
-        ax_3d.text(x, -y, z, f"ID {mid}")
+        ax_3d.text(x, -y, z, f"ID {id}")
 
-    if aim_ray is not None:
-        origin, direction = aim_ray
-
+    if origin is not None and direction is not None:
         # compute t for intersection with Z_PLANE
         if direction[2] != 0:
             t_end = (Z_PLANE - origin[2]) / direction[2]
@@ -108,28 +103,28 @@ def update_3d_plot(marker_positions, aim_ray=None):
             ax_3d.plot(line[0], -line[1], line[2], color='r', linewidth=2, label='Aim')
 
 
-    if True:
-        # --- Screen plane size in meters ---
-        x_half = REAL_SCREEN_WIDTH / 2
-        y_half = REAL_SCREEN_HEIGHT / 2
+    # --- Screen plane size in meters ---
+    x_half = REAL_SCREEN_WIDTH / 2
+    y_half = REAL_SCREEN_HEIGHT / 2
 
-        # generate grid for plane
-        x = np.linspace(-x_half, x_half, 10)
-        y = np.linspace(-y_half, y_half, 10)
-        X, Y = np.meshgrid(x, y)
-        Z = np.full_like(X, Z_PLANE)
+    # generate grid for plane
+    x = np.linspace(-x_half, x_half, 10)
+    y = np.linspace(-y_half, y_half, 10)
+    X, Y = np.meshgrid(x, y)
+    Z = np.full_like(X, Z_PLANE)
 
-        # apply vertical offset (center 15cm below camera)
-        Y -= Y_SHIFT + Y_ZERO_OFFSET  # or just +0.15 if you want
+    # apply vertical offset (center 15cm below camera)
+    Y -= Y_SHIFT + Y_ZERO_OFFSET  # or just +0.15 if you want
 
-        # plot the surface
-        ax_3d.plot_surface( X, -Y, Z, alpha=0.2, color='cyan')
+    # plot the surface
+    ax_3d.plot_surface( X, -Y, Z, alpha=0.2, color='cyan')
 
 
     plt.draw()
     plt.pause(0.01)
 
 def update_intersection_plot(intersection):
+    """Updates and draws the intersection plot."""
     x_half = REAL_SCREEN_WIDTH / 2
     y_half = REAL_SCREEN_HEIGHT / 2
 
@@ -145,7 +140,9 @@ def update_intersection_plot(intersection):
         ax_grid.scatter(-intersection[0], -intersection[1], c='r', s=50)
     fig.canvas.draw_idle()
 
-def estimate_aim_from_marker_dict(marker_positions, front_id, left_id, right_id):
+def estimate_aim_from_marker_dict(marker_positions, required_ids):
+    """Helper function for compute_barrel_line."""
+    front_id, left_id, right_id = required_ids
     try:
         Pz = marker_positions[front_id]
         Pl = marker_positions[left_id]
@@ -155,7 +152,8 @@ def estimate_aim_from_marker_dict(marker_positions, front_id, left_id, right_id)
 
     return compute_barrel_line(Pz, Pl, Pr)
 
-def aim_intersection(origin, direction):
+def compute_aim_intersection(origin, direction):
+    """Computes the intersection coordinte between the aim line and the aim plane."""
     if direction[2] == 0: return None
     t = (Z_PLANE - origin[2]) / direction[2]
     intersection = origin + t * direction
@@ -163,8 +161,9 @@ def aim_intersection(origin, direction):
     return intersection
 
 def get_marker_positions(corners, ids):
-    """Compute 3D positions of detected ArUco markers."""
+    """Computes 3D positions of detected ArUco markers."""
     positions = {}
+    
     for c, marker_id in zip(corners, ids.flatten()):
         ok, rvec, tvec = cv2.solvePnP(
             OBJ_POINTS,
@@ -173,15 +172,16 @@ def get_marker_positions(corners, ids):
             DIST_COEFFS,
             flags=cv2.SOLVEPNP_IPPE_SQUARE
         )
-        if ok:
-            positions[int(marker_id)] = tvec.reshape(3)
-        # print(tvec)
+        
+        if ok: positions[int(marker_id)] = tvec.reshape(3)
+
     return positions
 
-def compute_barrel_line(F, B1, B2, h=0.125):
-    rear_mid = 0.5 * (B1 + B2)
+def compute_barrel_line(F, L, R, h=0.125):
+    """Computes the barrel aim line based on the three Aruco codes."""
+    rear_mid = 0.5 * (L + R)
 
-    s = B2 - B1
+    s = R - L
     s /= np.linalg.norm(s)
 
     f = F - rear_mid
@@ -197,6 +197,46 @@ def compute_barrel_line(F, B1, B2, h=0.125):
 
     return B_virtual, barrel_dir
 
+def smooth_direction(direction, prev_dir, alpha):
+    """Exponential smoothing of a unit direction vector."""
+
+    # If prev_dir is not initialized properly, initialize it
+    if prev_dir is None:
+        direction_norm = direction / np.linalg.norm(direction)
+        return direction_norm, direction_norm
+
+    # Exponential smoothing
+    smoothed = alpha * direction + (1 - alpha) * prev_dir
+    norm = np.linalg.norm(smoothed)
+
+    # fallback safety 
+    if norm == 0: return prev_dir, prev_dir
+
+    smoothed /= norm
+
+    return smoothed, smoothed
+
+def detect_markers(frame):
+    """Detects Aruco markers in the frame."""
+    corners, ids, _ = DETECTOR.detectMarkers(frame)
+    if ids is not None: aruco.drawDetectedMarkers(frame, corners, ids)
+    return corners, ids
+
+def compute_marker_aim(markers):
+    """Computes 3D marker positions and the barrel aim."""
+    
+    if not REQUIRED_IDS.issubset(markers.keys()): return markers, None, None
+
+    origin, direction = estimate_aim_from_marker_dict(markers, REQUIRED_IDS)
+    markers[4] = origin     # Appends the back midpoint to the markers for visualization
+    return markers, origin, direction
+
+def smooth_aim(direction, prev_dir, alpha=0.6):
+    """Smooths the aim direction."""
+    if direction is None: return prev_dir, None
+
+    direction_smoothed, prev_dir = smooth_direction(direction, prev_dir, alpha)
+    return prev_dir, direction_smoothed
 
 # --- Start webcam ---
 cap = cv2.VideoCapture(0)
@@ -204,36 +244,26 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)   # width
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)   # height
 if not cap.isOpened(): raise RuntimeError("Could not open webcam")
 
-last_markers = {}
-last_aim = None
-prev_dir = np.array([1.0, 1.0, 1.0])
+prev_dir = None
 
 print(" ============================ Running ============================ ")
 while running:
     ret, frame = cap.read()
     if not ret: break
 
-    corners, ids, _ = DETECTOR.detectMarkers(frame)
-    if ids is not None:
-        aruco.drawDetectedMarkers(frame, corners, ids)
-        markers = get_marker_positions(corners, ids)
-        last_markers = markers
-        # print(last_markers)
+    corners, ids = detect_markers(frame)
 
-        if REQUIRED_IDS.issubset(markers.keys()):
-            origin, direction = estimate_aim_from_marker_dict(markers, FRONT_ID, LEFT_ID, RIGHT_ID)
-            markers[4] = origin
-            # print(origin, direction)
-            # alpha = 0.6
-            # direction_smoothed = alpha * direction + (1-alpha) * prev_dir
-            # direction_smoothed /= np.linalg.norm(direction_smoothed)
-            # prev_dir = direction_smoothed
-            last_aim = (origin, direction)#direction_smoothed)
+    marker_coordinates = get_marker_positions(corners, ids)
 
-    if not last_aim is None:
-        intersection = aim_intersection(*last_aim)
-        update_intersection_plot(intersection)
-        update_3d_plot(markers, last_aim)
+    marker_coordinates, origin, direction = compute_marker_aim(marker_coordinates)
+
+    prev_dir, smoothed_dir = smooth_aim(direction, prev_dir, alpha=0.6)
+
+    if smoothed_dir is None: continue
+
+    intersection = compute_aim_intersection(origin, smoothed_dir)
+    update_intersection_plot(intersection)
+    update_3d_plot(marker_coordinates, origin, smoothed_dir)
 
     img_artist.set_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
