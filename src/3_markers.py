@@ -12,59 +12,26 @@ REQUIRED_IDS = {FRONT_ID, LEFT_ID, RIGHT_ID}
 
 # --- Camera plane for intersection ---
 Z_PLANE = -0.025
-Y_SHIFT = -0.12
-Y_ZERO_OFFSET = -0.1
+Y_SHIFT = -0.275
 
 REAL_SCREEN_WIDTH = 0.52
 REAL_SCREEN_HEIGHT = 0.29
 
-# --- Load camera calibration ---
+# --- Camera calibration ---
+CAMERA_CALIB = np.load("src/camera_calib_128_72.npz")
+CAM_W = 1280
+CAM_H = 720
 
-CAM_W =  640
-CAM_H =  480
+CAMERA_MATRIX = CAMERA_CALIB["cameraMatrix"]
+DIST_COEFFS = CAMERA_CALIB["distCoeffs"]
 
-CAMERA_CALIB = np.load("src/camera_calib_64_48.npz")
-
-# possible higher resolution requires recalibration
-# CAM_W = 1280
-# CAM_H = 720
-
-running = True
-
-# --- Figure with GridSpec ---
-fig = plt.figure(figsize=(16, 9))
-gs = GridSpec(2, 2, height_ratios=[1, 2], width_ratios=[1, 1], hspace=0.3, wspace=0.3, figure=fig)
-
-# Top-left: 3D plot
-ax_3d = fig.add_subplot(gs[:, 0], projection='3d')
-ax_3d.set_title("3D Projection")
-
-# Top-right: Intersection plot
-ax_grid = fig.add_subplot(gs[0, 1])
-ax_grid.set_title("Intersection Point on Screen")
-
-# Bottom (spans both columns): Camera feed
-ax_img = fig.add_subplot(gs[1, 1])
-img_artist = ax_img.imshow(np.zeros((CAM_H, CAM_W, 3), dtype=np.uint8))
-ax_img.axis("off")
-ax_img.set_title("Camera")
-
-
-def on_close(event):
-    global running
-    running = False
-    cap.release()
-    cv2.destroyAllWindows()
-
-
-fig.canvas.mpl_connect("close_event", on_close)
-# fig.canvas.mpl_connect("key_release_event", on_close)
-
-
+# --- ArUco detector ---
 aruco = cv2.aruco
 DICT = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
 PARAMS = aruco.DetectorParameters()
 DETECTOR = aruco.ArucoDetector(DICT, PARAMS)
+
+# --- 3D marker object points ---
 OBJ_POINTS = np.array([
     [-MARKER_SIZE/2,  MARKER_SIZE/2, 0],
     [ MARKER_SIZE/2,  MARKER_SIZE/2, 0],
@@ -72,73 +39,103 @@ OBJ_POINTS = np.array([
     [-MARKER_SIZE/2, -MARKER_SIZE/2, 0],
 ], dtype=np.float32)
 
-CAMERA_MATRIX = CAMERA_CALIB["cameraMatrix"]
-DIST_COEFFS = CAMERA_CALIB["distCoeffs"]
+# --- Global flags ---
+running = True
 
-def update_3d_plot(marker_positions, origin=None, direction = None):
-    """Updates and draws the intersection plot."""
+# --- Figure and axes ---
+fig = plt.figure(figsize=(16, 9))
+gs = GridSpec(2, 2, height_ratios=[1, 2], width_ratios=[1, 1], hspace=0.3, wspace=0.3, figure=fig)
 
-    ax_3d.cla()
-    ax_3d.set_xlabel("X")
-    ax_3d.set_ylabel("Y")
-    ax_3d.set_zlabel("Z")
-    ax_3d.set_title("3D Projection")
-    ax_3d.set_xlim(-0.4, 0.4)
-    ax_3d.set_ylim(-1.2, 0.4)
-    ax_3d.set_zlim(-0.1, 1.2)
+ax_3d = fig.add_subplot(gs[:, 0], projection='3d')
+ax_3d.set_title("3D Projection")
+ax_3d.set_xlabel("X")
+ax_3d.set_ylabel("Y")
+ax_3d.set_zlabel("Z")
+ax_3d.set_xlim(-0.4, 0.4)
+ax_3d.set_ylim(-1.2, 0.4)
+ax_3d.set_zlim(-0.1, 1.2)
 
-    for id, p in marker_positions.items():
-        x, y, z = p
-        ax_3d.scatter(x, -y, z, s=10)
-        ax_3d.text(x, -y, z, f"ID {id}")
+ax_grid = fig.add_subplot(gs[0, 1])
+ax_grid.set_title("Intersection Point on Screen")
+x_half = REAL_SCREEN_WIDTH / 2
+y_half = REAL_SCREEN_HEIGHT / 2
+ax_grid.set_xlim(-x_half, x_half)
+ax_grid.set_ylim(-y_half, y_half)
+ax_grid.grid(True)
+intersection_scat = ax_grid.scatter([], [], c='r', s=50)
 
-    if origin is not None and direction is not None:
-        # compute t for intersection with Z_PLANE
-        if direction[2] != 0:
-            t_end = (Z_PLANE - origin[2]) / direction[2]
-            t_end = max(0, t_end)  # optional: avoid negative t (behind camera)
+ax_img = fig.add_subplot(gs[1, 1])
+img_artist = ax_img.imshow(np.zeros((CAM_H, CAM_W, 3), dtype=np.uint8))
+ax_img.axis("off")
+ax_img.set_title("Camera")
 
-            t = np.linspace(0, t_end, 50)
-            line = origin.reshape(3,1) + direction.reshape(3,1) @ t.reshape(1,-1)
-            ax_3d.plot(line[0], -line[1], line[2], color='r', linewidth=2, label='Aim')
+# --- Pre-create 3D plot elements ---
+marker_scat = ax_3d.scatter([], [], [], s=10)
+aim_line, = ax_3d.plot([], [], [], color='r', linewidth=2, label='Aim')
 
-
-    # --- Screen plane size in meters ---
-    x_half = REAL_SCREEN_WIDTH / 2
-    y_half = REAL_SCREEN_HEIGHT / 2
-
-    # generate grid for plane
-    x = np.linspace(-x_half, x_half, 10)
-    y = np.linspace(-y_half, y_half, 10)
-    X, Y = np.meshgrid(x, y)
-    Z = np.full_like(X, Z_PLANE)
-
-    # apply vertical offset (center 15cm below camera)
-    Y -= Y_SHIFT + Y_ZERO_OFFSET  # or just +0.15 if you want
-
-    # plot the surface
-    ax_3d.plot_surface( X, -Y, Z, alpha=0.2, color='cyan')
+# Static screen plane
+x = np.linspace(-x_half, x_half, 10)
+y = np.linspace(-y_half, y_half, 10)
+X, Y = np.meshgrid(x, y)
+Z = np.full_like(X, Z_PLANE)
+Y -= Y_SHIFT
+ax_3d.plot_surface(X, -Y, Z, alpha=0.2, color='cyan')
 
 
+def on_close(event):
+    global running
+    running = False
+
+
+fig.canvas.mpl_connect("close_event", on_close)
+# fig.canvas.mpl_connect("key_release_event", on_close)
+
+def update_3d_plot(marker_positions, origin=None, direction=None):
+    # Update marker positions
+    if marker_positions:
+        xs, ys, zs = zip(*marker_positions.values())
+        ids = list(marker_positions.keys())
+        
+        # Use IDs to assign colors (cycled through a colormap)
+        cmap = plt.get_cmap('tab10')
+        colors = [cmap(i % 10) for i in ids]
+
+        marker_scat._offsets3d = (xs, [-y for y in ys], zs)
+        marker_scat.set_color(colors)
+
+        # Remove previous text labels safely
+        for txt in ax_3d.texts:
+            txt.remove()
+
+        # Draw new text labels
+        for id, (x, y, z) in marker_positions.items():
+            ax_3d.text(x, -y, z, str(id), color=cmap(id % 10))
+    else:
+        marker_scat._offsets3d = ([], [], [])
+
+    # Update aim line
+    if origin is not None and direction is not None and direction[2] != 0:
+        t_end = max(0, (Z_PLANE - origin[2]) / direction[2])
+        t = np.linspace(0, t_end, 50)
+        line = origin.reshape(3,1) + direction.reshape(3,1) @ t.reshape(1,-1)
+        aim_line.set_data(line[0], -line[1])
+        aim_line.set_3d_properties(line[2])
+
+    # Redraw
     plt.draw()
-    plt.pause(0.01)
+    plt.pause(0.001)
 
 def update_intersection_plot(intersection):
-    """Updates and draws the intersection plot."""
-    x_half = REAL_SCREEN_WIDTH / 2
-    y_half = REAL_SCREEN_HEIGHT / 2
-
-    ax_grid.cla()
-    ax_grid.set_xlim(-x_half, x_half) # actual screen size
-    ax_grid.set_ylim(-y_half, y_half)
-    ax_grid.set_aspect('equal', adjustable='box')
-    ax_grid.set_xlabel("X (m)")
-    ax_grid.set_ylabel("Y (m)")
-    ax_grid.set_title("Intersection Point on Screen")
-    ax_grid.grid(True)
     if intersection is not None:
-        ax_grid.scatter(-intersection[0], -intersection[1], c='r', s=50)
+        intersection_scat.set_offsets([[-intersection[0], -intersection[1]]])
+    else:
+        intersection_scat.set_offsets(np.empty((0, 2)))
     fig.canvas.draw_idle()
+
+def update_camera_frame(frame):
+    """Updates the camera feed image in the matplotlib UI."""
+    img_artist.set_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    plt.pause(0.001)
 
 def estimate_aim_from_marker_dict(marker_positions, required_ids):
     """Helper function for compute_barrel_line."""
@@ -157,7 +154,7 @@ def compute_aim_intersection(origin, direction):
     if direction[2] == 0: return None
     t = (Z_PLANE - origin[2]) / direction[2]
     intersection = origin + t * direction
-    intersection[1] += Y_SHIFT + Y_ZERO_OFFSET
+    intersection[1] += Y_SHIFT
     return intersection
 
 def get_marker_positions(corners, ids):
@@ -249,22 +246,33 @@ prev_dir = None
 print(" ============================ Running ============================ ")
 while running:
     ret, frame = cap.read()
-    if not ret: break
+    if not ret:
+        break
 
     corners, ids = detect_markers(frame)
+    if ids is None or len(ids) == 0: 
+        update_camera_frame(frame)
+        continue
 
+    # --- Get 3D positions for all detected markers ---
     marker_coordinates = get_marker_positions(corners, ids)
 
-    marker_coordinates, origin, direction = compute_marker_aim(marker_coordinates)
+    # --- Compute aim and intersection only if required markers exist ---
+    smoothed_dir = None
+    intersection = None
+    origin = None
 
-    prev_dir, smoothed_dir = smooth_aim(direction, prev_dir, alpha=0.6)
+    if REQUIRED_IDS.issubset(marker_coordinates.keys()):
+        origin, direction = estimate_aim_from_marker_dict(marker_coordinates, REQUIRED_IDS)
+        prev_dir, smoothed_dir = smooth_aim(direction, prev_dir, alpha=0.6)
+        intersection = compute_aim_intersection(origin, smoothed_dir)
+        print(intersection)
 
-    if smoothed_dir is None: continue
-
-    intersection = compute_aim_intersection(origin, smoothed_dir)
+    # --- Update visualizations ---
     update_intersection_plot(intersection)
     update_3d_plot(marker_coordinates, origin, smoothed_dir)
-
-    img_artist.set_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    update_camera_frame(frame)
 
 print(" =============!============ CLOSED =============!============ ")
+cap.release()
+cv2.destroyAllWindows()
