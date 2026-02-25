@@ -14,8 +14,15 @@ REQUIRED_IDS = {FRONT_ID, LEFT_ID, RIGHT_ID}
 Z_PLANE = -0.025
 Y_SHIFT = -0.275
 
-REAL_SCREEN_WIDTH = 0.52
+REAL_SCREEN_WIDTH = 0.53
 REAL_SCREEN_HEIGHT = 0.29
+PX_SCREEN_WIDTH  = 1920
+PX_SCREEN_HEIGHT = 1080
+
+SCALE_X = PX_SCREEN_WIDTH  / REAL_SCREEN_WIDTH
+SCALE_Y = PX_SCREEN_HEIGHT / REAL_SCREEN_HEIGHT
+CENTER_X = PX_SCREEN_WIDTH  / 2
+CENTER_Y = PX_SCREEN_HEIGHT / 2
 
 # --- Camera calibration ---
 CAMERA_CALIB = np.load("src/camera_calib_128_72.npz")
@@ -57,10 +64,16 @@ ax_3d.set_zlim(-0.1, 1.2)
 
 ax_grid = fig.add_subplot(gs[0, 1])
 ax_grid.set_title("Intersection Point on Screen")
-x_half = REAL_SCREEN_WIDTH / 2
-y_half = REAL_SCREEN_HEIGHT / 2
-ax_grid.set_xlim(-x_half, x_half)
-ax_grid.set_ylim(-y_half, y_half)
+
+# x_half = REAL_SCREEN_WIDTH / 2
+# y_half = REAL_SCREEN_HEIGHT / 2
+# ax_grid.set_xlim(-x_half, x_half)
+# ax_grid.set_ylim(-y_half, y_half)
+x_half = PX_SCREEN_WIDTH
+y_half = PX_SCREEN_HEIGHT
+ax_grid.set_xlim(0, x_half)
+ax_grid.set_ylim(y_half, 0)
+
 ax_grid.grid(True)
 intersection_scat = ax_grid.scatter([], [], c='r', s=50)
 
@@ -74,8 +87,8 @@ marker_scat = ax_3d.scatter([], [], [], s=10)
 aim_line, = ax_3d.plot([], [], [], color='r', linewidth=2, label='Aim')
 
 # Static screen plane
-x = np.linspace(-x_half, x_half, 10)
-y = np.linspace(-y_half, y_half, 10)
+x = np.linspace(-REAL_SCREEN_WIDTH / 2,REAL_SCREEN_WIDTH / 2, 10)
+y = np.linspace(-REAL_SCREEN_HEIGHT / 2, REAL_SCREEN_HEIGHT / 2, 10)
 X, Y = np.meshgrid(x, y)
 Z = np.full_like(X, Z_PLANE)
 Y -= Y_SHIFT
@@ -134,6 +147,15 @@ def update_intersection_plot(intersection):
         intersection_scat.set_offsets(np.empty((0, 2)))
     fig.canvas.draw_idle()
 
+def plot_screen_px_plot(coords):
+    if coords is not None:
+        x, y = coords
+        intersection_scat.set_offsets([[x, y]])
+    else:
+        intersection_scat.set_offsets(np.empty((0, 2)))
+    
+    fig.canvas.draw_idle()
+
 def update_camera_frame(frame):
     """Updates the camera feed image in the matplotlib UI."""
     img_artist.set_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -158,6 +180,13 @@ def compute_aim_intersection(origin, direction):
     intersection = origin + t * direction
     intersection[1] += Y_SHIFT
     return intersection
+
+def intersection_to_screen_coordinates(intersection):
+    x = CENTER_X - SCALE_X * intersection[0]
+    y = CENTER_Y + SCALE_Y * intersection[1]
+    x = round(x)
+    y = round(y)
+    return x, y
 
 def get_marker_positions(corners, ids):
     """Computes 3D positions of detected ArUco markers."""
@@ -230,7 +259,7 @@ def compute_marker_aim(markers):
     markers[4] = origin     # Appends the back midpoint to the markers for visualization
     return markers, origin, direction
 
-def smooth_aim(direction, prev_dir, alpha=0.6):
+def smooth_aim(direction, prev_dir, alpha=1):
     """Smooths the aim direction."""
     if direction is None: return prev_dir, None
 
@@ -260,20 +289,19 @@ while running:
     marker_coordinates = get_marker_positions(corners, ids)
 
     # --- Compute aim and intersection only if required markers exist ---
-    smoothed_dir = None
-    intersection = None
-    origin = None
+    smoothed_dir = intersection = origin = screen_coords = None
 
     if REQUIRED_IDS.issubset(marker_coordinates.keys()):
         origin, direction = estimate_aim_from_marker_dict(marker_coordinates, REQUIRED_IDS)
-        prev_dir, smoothed_dir = smooth_aim(direction, prev_dir, alpha=0.6)
+        prev_dir, smoothed_dir = smooth_aim(direction, prev_dir, 0.3)
         intersection = compute_aim_intersection(origin, smoothed_dir)
-        print(intersection)
+        screen_coords = intersection_to_screen_coordinates(intersection)
 
     # --- Update visualizations ---
-    update_intersection_plot(intersection)
+    # update_intersection_plot(intersection)
+    plot_screen_px_plot(screen_coords)
     update_3d_plot(marker_coordinates, origin, smoothed_dir)
-    update_camera_frame(frame)
+    # update_camera_frame(frame)
 
 print(" =============!============ CLOSED =============!============ ")
 cap.release()

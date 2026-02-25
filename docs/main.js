@@ -8,8 +8,9 @@ const postFiles = [
   "2026-02-08-previously.md",
   "2026-02-13-gui-and-math-update.md",
   "2026-02-22-aim-reliability.md",
-  "2026-02-24-process-explanation.md",
   "2026-02-24-calibration-miracles.md",
+  "2026-02-24-process-explanation.md",
+  "2026-02-25-plot-optimization.md",
 ];
 
 async function loadPost(filename) {

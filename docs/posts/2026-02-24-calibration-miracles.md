@@ -3,7 +3,7 @@ title: Calibration Miracles
 date: 2026-02-24
 ---
 
-This time I have redone the calibration with printed markers and higher resolution camera. And to my surprise, it worked better then I expected. The jitter has ben reduced greatly. Amazing! 
+This time I have redone the calibration with printed markers and higher resolution camera. And to my surprise, it worked better then I expected. The jitter has ben reduced greatly. Amazing!
 
 There is still some jitter. To reduce this, I want to implement a sliding window that filters outliers and then calculates an average. Since the camera records at 30 fps, there are a few frames to play around with.
 
@@ -16,6 +16,6 @@ Next I'd like to add a function that gives me exact screen pixel coordinates bas
 
 **Todo**
 * Implement window filter to reduce jitter.
-* Create a function that translates coordinates into pixel coordinates.
+* ~~Create a function that translates coordinates into pixel coordinates.~~
 * Think about a way to detect a trigger pull.
 
