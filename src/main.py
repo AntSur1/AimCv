@@ -48,12 +48,13 @@ OBJ_POINTS = np.array([
 
 # --- Global flags ---
 running = True
+DEBUG_MODE = True
 
 # --- Figure and axes ---
 fig = plt.figure(figsize=(16, 9))
-gs = GridSpec(2, 2, height_ratios=[1, 2], width_ratios=[1, 1], hspace=0.3, wspace=0.3, figure=fig)
+gs = GridSpec(1, 2, hspace=0.3, wspace=0.3, figure=fig)
 
-ax_3d = fig.add_subplot(gs[:, 0], projection='3d')
+ax_3d = fig.add_subplot(gs[0, 0], projection='3d')
 ax_3d.set_title("3D Projection")
 ax_3d.set_xlabel("X")
 ax_3d.set_ylabel("Y")
@@ -77,10 +78,10 @@ ax_grid.set_ylim(y_half, 0)
 ax_grid.grid(True)
 intersection_scat = ax_grid.scatter([], [], c='r', s=50)
 
-ax_img = fig.add_subplot(gs[1, 1])
-img_artist = ax_img.imshow(np.zeros((CAM_H, CAM_W, 3), dtype=np.uint8))
-ax_img.axis("off")
-ax_img.set_title("Camera")
+# ax_img = fig.add_subplot(gs[1, 1])
+# img_artist = ax_img.imshow(np.zeros((CAM_H, CAM_W, 3), dtype=np.uint8))
+# ax_img.axis("off")
+# ax_img.set_title("Camera")
 
 # --- Pre-create 3D plot elements ---
 marker_scat = ax_3d.scatter([], [], [], s=10)
@@ -92,16 +93,16 @@ y = np.linspace(-REAL_SCREEN_HEIGHT / 2, REAL_SCREEN_HEIGHT / 2, 10)
 X, Y = np.meshgrid(x, y)
 Z = np.full_like(X, Z_PLANE)
 Y -= Y_SHIFT
-ax_3d.plot_surface(X, -Y, Z, alpha=0.2, color='cyan')
+ax_3d.plot_surface(X, Y, Z, alpha=0.2, color='cyan')
 
-
-def on_close(event):
+def end_program(event=None):
+    print(" Closing program")
     global running
     running = False
 
 
-fig.canvas.mpl_connect("close_event", on_close)
-# fig.canvas.mpl_connect("key_release_event", on_close)
+fig.canvas.mpl_connect("close_event", end_program)
+# fig.canvas.mpl_connect("key_release_event", end_program)
 
 def update_3d_plot(marker_positions, origin=None, direction=None):
     '''Updates the 3D plot.'''
@@ -136,8 +137,8 @@ def update_3d_plot(marker_positions, origin=None, direction=None):
         aim_line.set_3d_properties(line[2])
 
     # Redraw
-    plt.draw()
-    plt.pause(0.001)
+    fig.canvas.draw_idle()
+    fig.canvas.flush_events()
 
 def update_intersection_plot(intersection):
     '''Updates the intersection plot.'''
@@ -156,10 +157,21 @@ def plot_screen_px_plot(coords):
     
     fig.canvas.draw_idle()
 
-def update_camera_frame(frame):
+def update_camera_frame(frame, display_size=(640, 360)):
     """Updates the camera feed image in the matplotlib UI."""
-    img_artist.set_data(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    plt.pause(0.001)
+    # Resize for display only
+    frame_resized = cv2.resize(frame, display_size)
+    
+    # Update window    
+    cv2.resizeWindow("Camera", display_size[0], display_size[1])
+    cv2.imshow("Camera", frame_resized)
+
+    # Optional: close program on 'Esc' key
+    if cv2.getWindowProperty("Camera", cv2.WND_PROP_VISIBLE) < 1: 
+        end_program
+
+    if cv2.waitKey(1) & 0xFF == 27:
+        end_program()
 
 def estimate_aim_from_marker_dict(marker_positions, required_ids):
     """Helper function for compute_barrel_line."""
@@ -272,18 +284,23 @@ cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)   # width
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)   # height
 if not cap.isOpened(): raise RuntimeError("Could not open webcam")
 
+cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
+
+plt.ion()
+plt.show()
+
 prev_dir = None
 
 print(" ============================ Running ============================ ")
 while running:
     ret, frame = cap.read()
-    if not ret:
-        break
+    if not ret: break
 
     corners, ids = detect_markers(frame)
-    if ids is None or len(ids) == 0: 
+    if DEBUG_MODE:
         update_camera_frame(frame)
-        continue
+
+    if ids is None or len(ids) == 0: continue
 
     # --- Get 3D positions for all detected markers ---
     marker_coordinates = get_marker_positions(corners, ids)
@@ -298,10 +315,10 @@ while running:
         screen_coords = intersection_to_screen_coordinates(intersection)
 
     # --- Update visualizations ---
-    # update_intersection_plot(intersection)
-    plot_screen_px_plot(screen_coords)
-    update_3d_plot(marker_coordinates, origin, smoothed_dir)
-    # update_camera_frame(frame)
+    if DEBUG_MODE: 
+        # update_intersection_plot(intersection)
+        plot_screen_px_plot(screen_coords)
+        update_3d_plot(marker_coordinates, origin, smoothed_dir)
 
 print(" =============!============ CLOSED =============!============ ")
 cap.release()
