@@ -11,6 +11,7 @@ const postFiles = [
   "2026-02-24-calibration-miracles.md",
   "2026-02-24-process-explanation.md",
   "2026-02-25-plot-optimization.md",
+  "2026-02-28-camera-feedback.md",
 ];
 
 async function loadPost(filename) {

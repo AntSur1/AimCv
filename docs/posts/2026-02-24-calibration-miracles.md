@@ -15,7 +15,7 @@ Next I'd like to add a function that gives me exact screen pixel coordinates bas
 *Figure: This is an example calibration frame.*
 
 **Todo**
-* Implement window filter to reduce jitter.
+* ~~Implement window filter to reduce jitter.~~ *(Not needed)*
 * ~~Create a function that translates coordinates into pixel coordinates.~~
 * Think about a way to detect a trigger pull.
 

@@ -13,6 +13,6 @@ Next I have to start thinking about some way to overlay this information over vi
 *Figure: Updated GUI with screen coordinates.*
 
 **Todo**
-* Make a separate camera view.
+* ~~Make a separate camera view.~~
 * Do video overlay
 * Get hunting video?

@@ -4,4 +4,7 @@ calib_imgs/
 /__pycache__/
 
 *.npz
-points.txt
+
+temp.py
+
+

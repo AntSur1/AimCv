@@ -17,4 +17,4 @@ Other than these observations, I updated the GUI to reflect the screen size bett
 **Todo**
 * ~~Increase camera resolution and redo calibration.~~
 
-* (Move camera)
+* ~~Move camera~~ *(Not needed)*

@@ -48,7 +48,8 @@ OBJ_POINTS = np.array([
 
 # --- Global flags ---
 running = True
-DEBUG_MODE = True
+DEBUG_MODE = False
+print("Debug mode:", DEBUG_MODE)
 
 # --- Figure and axes ---
 fig = plt.figure(figsize=(16, 9))
@@ -70,18 +71,15 @@ ax_grid.set_title("Intersection Point on Screen")
 # y_half = REAL_SCREEN_HEIGHT / 2
 # ax_grid.set_xlim(-x_half, x_half)
 # ax_grid.set_ylim(-y_half, y_half)
-x_half = PX_SCREEN_WIDTH
-y_half = PX_SCREEN_HEIGHT
-ax_grid.set_xlim(0, x_half)
-ax_grid.set_ylim(y_half, 0)
+
+ax_grid.set_xlim(0, PX_SCREEN_WIDTH)
+ax_grid.set_ylim(PX_SCREEN_HEIGHT, 0)
+
+ax_grid.set_aspect('equal', adjustable='box')
+ax_grid.grid(True)
 
 ax_grid.grid(True)
 intersection_scat = ax_grid.scatter([], [], c='r', s=50)
-
-# ax_img = fig.add_subplot(gs[1, 1])
-# img_artist = ax_img.imshow(np.zeros((CAM_H, CAM_W, 3), dtype=np.uint8))
-# ax_img.axis("off")
-# ax_img.set_title("Camera")
 
 # --- Pre-create 3D plot elements ---
 marker_scat = ax_3d.scatter([], [], [], s=10)
@@ -92,8 +90,10 @@ x = np.linspace(-REAL_SCREEN_WIDTH / 2,REAL_SCREEN_WIDTH / 2, 10)
 y = np.linspace(-REAL_SCREEN_HEIGHT / 2, REAL_SCREEN_HEIGHT / 2, 10)
 X, Y = np.meshgrid(x, y)
 Z = np.full_like(X, Z_PLANE)
-Y -= Y_SHIFT
+Y += Y_SHIFT
 ax_3d.plot_surface(X, Y, Z, alpha=0.2, color='cyan')
+
+print("Variables set")
 
 def end_program(event=None):
     print(" Closing program")
@@ -157,20 +157,24 @@ def plot_screen_px_plot(coords):
     
     fig.canvas.draw_idle()
 
-def update_camera_frame(frame, display_size=(640, 360)):
+def update_camera_frame(frame, are_all_markers_in_frame, display_size=(320, 180)):
     """Updates the camera feed image in the matplotlib UI."""
     # Resize for display only
     frame_resized = cv2.resize(frame, display_size)
+    h, w = frame_resized.shape[:2]
+    # (B, G, R) for some reason
+    color = (0, 255, 0) if are_all_markers_in_frame else (0, 0, 255)
+
+    THICKNESS = 4
+    cv2.rectangle(frame_resized, (0, h-THICKNESS), (w, h), color, -1)
     
     # Update window    
     cv2.resizeWindow("Camera", display_size[0], display_size[1])
     cv2.imshow("Camera", frame_resized)
 
     # Optional: close program on 'Esc' key
-    if cv2.getWindowProperty("Camera", cv2.WND_PROP_VISIBLE) < 1: 
-        end_program
-
-    if cv2.waitKey(1) & 0xFF == 27:
+    if (cv2.getWindowProperty("Camera", cv2.WND_PROP_VISIBLE) < 1 or 
+        (cv2.waitKey(1) & 0xFF == 27)): 
         end_program()
 
 def estimate_aim_from_marker_dict(marker_positions, required_ids):
@@ -283,11 +287,13 @@ cap = cv2.VideoCapture(0)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)   # width
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)   # height
 if not cap.isOpened(): raise RuntimeError("Could not open webcam")
+print("Camnera loaded")
 
 cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
 
-plt.ion()
-plt.show()
+if DEBUG_MODE:
+    plt.ion()
+    plt.show()
 
 prev_dir = None
 
@@ -297,8 +303,12 @@ while running:
     if not ret: break
 
     corners, ids = detect_markers(frame)
-    if DEBUG_MODE:
-        update_camera_frame(frame)
+    can_see_all_markers = (
+        ids is not None and
+        REQUIRED_IDS.issubset(set(ids.flatten()))
+    )
+    
+    update_camera_frame(frame, can_see_all_markers)
 
     if ids is None or len(ids) == 0: continue
 
@@ -308,7 +318,7 @@ while running:
     # --- Compute aim and intersection only if required markers exist ---
     smoothed_dir = intersection = origin = screen_coords = None
 
-    if REQUIRED_IDS.issubset(marker_coordinates.keys()):
+    if can_see_all_markers:
         origin, direction = estimate_aim_from_marker_dict(marker_coordinates, REQUIRED_IDS)
         prev_dir, smoothed_dir = smooth_aim(direction, prev_dir, 0.3)
         intersection = compute_aim_intersection(origin, smoothed_dir)
