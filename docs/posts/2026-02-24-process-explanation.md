@@ -58,14 +58,8 @@ $$
 t = \frac{Z_{plane} - P_{barrel, z}}{V_{barrel\\_aim, z}}
 $$
 
-Using the parameter $t$, the intersection point with the plane is:
+Finally an intersection point with the plane can be found using the parameter $t$:
 
 $$
 P_{intersection} = P_{barrel} + t \cdot V_{barrel\\_aim}
-$$
-
-Finlay an intersection offset by a measured value $Y_{shift}$ that's based on the cameras origin distance from the screen center:
-
-$$
-P_{intersection, y} = P_{intersection, y} + Y_{shift}
 $$

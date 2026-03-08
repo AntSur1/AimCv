@@ -12,4 +12,5 @@ I also updated to GUI to include all views into the same window. This limits the
 ![New GUI view](posts/img/gui2.png)
 *Figure: Three views. 3d-coordinates and 2d screen intersection view.*
 
-~~The next step is to fix the issues and increase the reliability of the aim.~~
+**Todo**
+* ~~Fix the issues and increase the reliability of the aim.~~

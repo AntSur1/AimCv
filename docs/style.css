@@ -5,6 +5,7 @@ body {
   color: #222;
   margin: 0;
   font-size:1rem;
+  text-align: justify;
 }
 
 main {
@@ -75,7 +76,7 @@ article img {
   height: auto;
   margin: 1rem auto;
   border-radius: 1px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 /* ---------- Responsive ---------- */
