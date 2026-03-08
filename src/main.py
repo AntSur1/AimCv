@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+import time
 
 # --- Constants ---
 MARKER_SIZE = 0.06  # meters
@@ -275,61 +276,93 @@ def compute_marker_aim(markers):
     markers[4] = origin     # Appends the back midpoint to the markers for visualization
     return markers, origin, direction
 
-def smooth_aim(direction, prev_dir, alpha=1):
+def smooth_aim(direction, prev_dir, alpha=1.0):
     """Smooths the aim direction."""
     if direction is None: return prev_dir, None
 
     direction_smoothed, prev_dir = smooth_direction(direction, prev_dir, alpha)
     return prev_dir, direction_smoothed
 
-# --- Start webcam ---
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)   # width
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)   # height
-if not cap.isOpened(): raise RuntimeError("Could not open webcam")
-print("Camnera loaded")
+def are_all_markers_present(ids):
+    return ids is not None and REQUIRED_IDS.issubset(set(ids.flatten()))
 
-cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
+# --- Video ---
+def show_video_frame(frame):
+    cv2.imshow("Video", frame)
+
+def manipluate_video_frame(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    return gray
+
+# --- Setup stuff ---
+
+def load_camera():
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened(): raise RuntimeError("Could not open webcam")
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_W)   # width
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)   # height
+    cv2.namedWindow("Camera", cv2.WINDOW_NORMAL)
+    print("Camera loaded")
+    return cap
+
+def load_video(video_path):
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened(): raise RuntimeError("Could not open video")
+
+    return cap
+
+
+# --- Start webcam ---
+cam_cap = load_camera()
+vid_cap = load_video("src/test.mp4")
+
 
 if DEBUG_MODE:
     plt.ion()
     plt.show()
 
 prev_dir = None
+prev_time = time.time()
 
 print(" ============================ Running ============================ ")
 while running:
-    ret, frame = cap.read()
-    if not ret: break
+    now_time = time.time()
+    cam_ret, cam_frame = cam_cap.read()
+    vid_ret, vid_frame = vid_cap.read()
+    if not cam_ret or not vid_ret: 
+        print("No camera or no video")
+        break
 
-    corners, ids = detect_markers(frame)
-    can_see_all_markers = (
-        ids is not None and
-        REQUIRED_IDS.issubset(set(ids.flatten()))
-    )
+    corners, ids = detect_markers(cam_frame)
+    can_see_all_markers = are_all_markers_present(ids)
     
-    update_camera_frame(frame, can_see_all_markers)
+    update_camera_frame(cam_frame, can_see_all_markers)
 
-    if ids is None or len(ids) == 0: continue
+    if not (ids is None or len(ids) == 0):
 
-    # --- Get 3D positions for all detected markers ---
-    marker_coordinates = get_marker_positions(corners, ids)
+        marker_coordinates = get_marker_positions(corners, ids)
 
-    # --- Compute aim and intersection only if required markers exist ---
-    smoothed_dir = intersection = origin = screen_coords = None
+        if can_see_all_markers:
+            origin, direction = estimate_aim_from_marker_dict(marker_coordinates, REQUIRED_IDS)
+            prev_dir, smoothed_dir = smooth_aim(direction, prev_dir, 0.3)
+            intersection = compute_aim_intersection(origin, smoothed_dir)
+            screen_coords = intersection_to_screen_coordinates(intersection)
+        else:
+            smoothed_dir = intersection = origin = screen_coords = None
 
-    if can_see_all_markers:
-        origin, direction = estimate_aim_from_marker_dict(marker_coordinates, REQUIRED_IDS)
-        prev_dir, smoothed_dir = smooth_aim(direction, prev_dir, 0.3)
-        intersection = compute_aim_intersection(origin, smoothed_dir)
-        screen_coords = intersection_to_screen_coordinates(intersection)
+        if DEBUG_MODE: 
+            # update_intersection_plot(intersection)
+            plot_screen_px_plot(screen_coords)
+            update_3d_plot(marker_coordinates, origin, smoothed_dir)
 
-    # --- Update visualizations ---
-    if DEBUG_MODE: 
-        # update_intersection_plot(intersection)
-        plot_screen_px_plot(screen_coords)
-        update_3d_plot(marker_coordinates, origin, smoothed_dir)
+    # vid_frame = manipluate_video_frame(vid_frame)
+    show_video_frame(vid_frame)
+
+
+    if DEBUG_MODE: print("Loop fps:", round(1/(now_time - prev_time)))
+    prev_time = now_time
+
 
 print(" =============!============ CLOSED =============!============ ")
-cap.release()
+cam_cap.release()
 cv2.destroyAllWindows()
