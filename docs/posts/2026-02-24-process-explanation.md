@@ -6,7 +6,7 @@ date: 2026-02-24
 The gist of the program is as follows:
 
 1. The program detects marker IDs and corners from a camera frame using `detect_markers`.  
-2. Based on the IDs and corners, marker coordinates in camera coordinates are calculated using OpenCV's `solvePnP` function via `get_marker_positions`. 
+2. Based on the IDs and corners, marker coordinates in camera coordinates are calculated using OpenCV's `estimatePoseSingleMarkers` function via `get_marker_positions`. 
 
     From now on, the problem is reduced to a series of linear algebra calculations.
 

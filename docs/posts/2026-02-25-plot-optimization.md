@@ -14,5 +14,5 @@ Next I have to start thinking about some way to overlay this information over vi
 
 **Todo**
 * ~~Make a separate camera view.~~
-* Do video overlay
-* Get hunting video?
+* ~~Do video overlay~~
+* ~~Get hunting video?~~

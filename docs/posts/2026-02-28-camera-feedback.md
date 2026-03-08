@@ -16,5 +16,5 @@ The camera view is smaller now. This is because it's intended only as a referenc
 *Figure: Camera window functionality.*
 
 **Todo**
-* Overlay the dot information over a video
-* Detect where on the video a user is aiming
+* ~~Overlay the dot information over a video~~
+* ~~Detect where on the video a user is aiming~~
